@@ -1,3 +1,4 @@
+from __future__ import division
 from csv import reader
 from datetime import datetime
 from matplotlib import pyplot as plt
@@ -246,3 +247,7 @@ if min(heaterVals) < min(calibrationVals):
 plt.draw()
 plt.show()
 # getAverage()
+
+def calcQ0(gradient, inputHeatLoad, refGradient=16., refHeatLoad=9.6,
+           refQ0=2.7E10):
+    return refQ0 * (refHeatLoad / inputHeatLoad) * (gradient / refGradient) ^ 2
