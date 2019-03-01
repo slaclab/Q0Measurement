@@ -53,25 +53,30 @@ def parseData(fileName, cryoModule):
                 idxBuffDict["buffer"].append(float(row[idxBuffDict["idx"]]))
 
 
+###############################################################################
 # Analyzing change in downstream liquid level vs heat load (we're not using the
 # mass flow rate because SLAC doesn't have that particular diagnostic)
-def getLiquidLevelChange():
-    parseData("LL_test_cropped.csv", "2")
+#
+# CAVEAT: This only works if we refill to the same level before every run (in
+# this case, we refilled to 97%)
+###############################################################################
+def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
+                         valveTolerance, isCalibration):
+    parseData(dataFile, cryoModule)
     
     # The readings get wonky when the upstream liquid level dips below 66, and
     # when the  valve position is +/- 1.2 from our locked position (found
     # empirically)
     runs, timeRuns, heaterVals = populateRuns(heatLoad, downstreamLevel, 66,
-                                              1.2, REF_HEATER_VAL)
+                                              refValvePos, valveTolerance,
+                                              refHeaterVal)
                                  
     print "Heat Loads: " + str(heaterVals)
     adjustForHeaterSettle(heaterVals, runs, timeRuns)
     
-    ax1 = genAxis("Liquid Level as a Function of Time", "Unix Time (s)",
-                  "Downstream Liquid Level (%)")
-              
-    ax2 = genAxis("Rate of Change of Liquid Level as a Function of Heat Load",
-                  "Heat Load (W)", "dLL/dt (%/s)")
+    # if isCalibration:
+    ax1 = genAxis("Liquid Level as a Function of Time (Training Data)",
+                  "Unix Time (s)", "Downstream Liquid Level (%)")
 
     slopes = []
 
@@ -79,22 +84,35 @@ def getLiquidLevelChange():
         m, b = polyfit(timeRuns[idx], run, 1)
         slopes.append(m)
 
+        # if isCalibration:
         ax1.plot(timeRuns[idx], run, label=(str(round(m, 6)) + "%/s @ "
                                             + str(heaterVals[idx]) + " W"))
 
         ax1.plot(timeRuns[idx], [m*x + b for x in timeRuns[idx]])
-        
-    ax2.plot(heaterVals, slopes, marker="o", linestyle="None")
 
-    m, b = polyfit(heaterVals, slopes, 1)
-
-    ax2.plot(heaterVals, [m*x + b for x in heaterVals],
-             label=(str(m)+" %/(s*W)"))
-
+    # if isCalibration:
     ax1.legend(loc='lower right')
-    ax2.legend(loc='upper right')
-    
-    plt.show()
+
+    if isCalibration:
+        ax2 = genAxis("Rate of Change of Liquid Level as a Function of Heat Load",
+                      "Heat Load (W)", "dLL/dt (%/s)")
+
+        ax2.plot(heaterVals, slopes, marker="o", linestyle="None")
+
+        m, b = polyfit(heaterVals, slopes, 1)
+
+        print (8*m + b)
+
+        ax2.plot(heaterVals, [m*x + b for x in heaterVals],
+                 label=(str(m)+" %/(s*W)"))
+
+        ax2.legend(loc='upper right')
+
+        # plt.draw()
+        return m, b, ax2, heaterVals
+
+    else:
+        return slopes
 
     
 # Analyzing mass flow rate vs heat load
@@ -103,7 +121,8 @@ def getAverage():
     
     # The liquid level was constant and the JT valve position was changing for
     # this test, so we put conditions that are never met in order to bypass them
-    runs, timeRuns, heaterVals = populateRuns(heatLoad, flowRate, 0, maxint)
+    runs, timeRuns, heaterVals = populateRuns(heatLoad, flowRate, 0,
+                                              VALVE_LOCKED_POS, maxint)
 
     print "Heat loads: " + str(heaterVals)
     adjustForHeaterSettle(heaterVals, runs, timeRuns)
@@ -111,7 +130,10 @@ def getAverage():
     ax = genAxis("Average Flow Rate as a Function of Heat Load", "Time (s)",
                  "Flow Rate")
 
+    slopes = []
     for idx, run in enumerate(runs):
+        m, b = polyfit(timeRuns[idx], run, 1)
+        slopes.append(m)
         ave = mean(run)
 
         print "Average: " + str(ave)
@@ -123,7 +145,8 @@ def getAverage():
         ax.plot(timeRuns[idx], [ave for _ in timeRuns[idx]])
 
     ax.legend(loc="lower left")
-    plt.show()
+    return slopes
+    # plt.show()
 
 
 # Sometimes the heater takes a little while to settle, especially after large
@@ -142,8 +165,8 @@ def adjustForHeaterSettle(heaterVals, runs, timeRuns):
         timeRuns[idx] = timeRuns[idx][cutoff:]
 
 
-def populateRuns(inputBuffer, outputBuffer, levelLimit, valvePosLimit,
-                 adjustment=0.0):
+def populateRuns(inputBuffer, outputBuffer, levelLimit, refValvePos,
+                 valvePosTolerance, adjustment=0.0):
 
     def appendToBuffers(dataBuffers, startIdx, endIdx):
         for (runBuffer, dataBuffer) in dataBuffers:
@@ -162,7 +185,7 @@ def populateRuns(inputBuffer, outputBuffer, levelLimit, valvePosLimit,
         # A "break" condition defining the end of a run
         if (val != prevInputVal
                 or upstreamLevel[idx] < levelLimit
-                or abs(valvePos[idx] - VALVE_LOCKED_POS) > valvePosLimit
+                or abs(valvePos[idx] - refValvePos) > valvePosTolerance
                 or idx == len(inputBuffer) - 1):
 
             # Keeping only those runs with at least 1000 points
@@ -185,5 +208,41 @@ def genAxis(title, xlabel, ylabel):
     return ax
 
 
-getLiquidLevelChange()
-#getAverage()
+m, b, ax, calibrationVals = getLiquidLevelChange("LL_test_cropped.csv", "2",
+                                                 REF_HEATER_VAL,
+                                                 VALVE_LOCKED_POS, 1.2, True)
+
+del time[:]
+del unixTime[:]
+del valvePos[:]
+del flowRate[:]
+del heatLoad[:]
+del downstreamLevel[:]
+del upstreamLevel[:]
+
+# refHeaterVal = float(raw_input("Reference Heater Value: "))
+# valveLockedPos = float(raw_input("JT Valve locked position: "))
+# valvePosTolerace = float(raw_input("JT Valve position tolerance: "))
+
+# slopes = getLiquidLevelChange("LL_test_cropped.csv", "2", refHeaterVal,
+#                               valveLockedPos, valvePosTolerace, False)
+
+slopes = getAverage()
+print slopes
+
+heaterVals = []
+for dLL in slopes:
+    heaterVal = (dLL - b)/m
+    heaterVals.append(heaterVal)
+
+print heaterVals
+
+ax.plot(heaterVals, slopes, marker="o", linestyle="None")
+if min(heaterVals) < min(calibrationVals):
+    ax.plot(range(int(min(heaterVals)), int(min(calibrationVals)) + 1),
+            [m*x + b for x in range(int(min(heaterVals)),
+                                    int(min(calibrationVals)) + 1)])
+
+plt.draw()
+plt.show()
+# getAverage()
