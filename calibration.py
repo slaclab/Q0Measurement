@@ -2,12 +2,13 @@ from __future__ import division
 from csv import reader
 from datetime import datetime
 from matplotlib import pyplot as plt
-from numpy import mean, std, polyfit
+from numpy import mean, std, polyfit, linspace
 from sys import maxint, stderr
 
 
 VALVE_LOCKED_POS = 17
-REF_HEATER_VAL = 1.91
+# REF_HEATER_VAL = 1.91
+REF_HEATER_VAL = 0
 
 # Could probably figure out a way to use numpy arrays if I get the line count
 # from the CSV
@@ -20,7 +21,7 @@ downstreamLevel = []
 upstreamLevel = []
 
 
-def parseData(fileName, cryoModule):
+def parseData(fileName, cryoModule, cavity):
 
     def genHeader(prefix, suffix):
         return prefix + cryoModule + suffix
@@ -35,7 +36,8 @@ def parseData(fileName, cryoModule):
         for buff, col in [(unixTime, "Unix time"),
                           (valvePos, genHeader("CPV:CM0", ":3001:JT:POS_RBV")),
                           (flowRate, "CFICM0312"),
-                          (heatLoad, genHeader("CHTR:CM0", ":1155:HV:POWER")),
+                          (heatLoad, genHeader("CHTR:CM0", ":1" + cavity
+                                                           + "55:HV:POWER")),
                           (downstreamLevel, genHeader("CLL:CM0", ":2301:DS:LVL")),
                           (upstreamLevel, genHeader("CLL:CM0", ":2601:US:LVL"))]:
             try:
@@ -62,21 +64,20 @@ def parseData(fileName, cryoModule):
 # this case, we refilled to 97%)
 ###############################################################################
 def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
-                         valveTolerance, isCalibration):
-    parseData(dataFile, cryoModule)
+                         valveTolerance, isCalibration, cavity, cutoff=1000):
+    parseData(dataFile, cryoModule, cavity)
     
     # The readings get wonky when the upstream liquid level dips below 66, and
     # when the  valve position is +/- 1.2 from our locked position (found
     # empirically)
     runs, timeRuns, heaterVals = populateRuns(heatLoad, downstreamLevel, 66,
                                               refValvePos, valveTolerance,
-                                              refHeaterVal)
+                                              refHeaterVal, cutoff)
                                  
     print "Heat Loads: " + str(heaterVals)
     adjustForHeaterSettle(heaterVals, runs, timeRuns)
     
-    # if isCalibration:
-    ax1 = genAxis("Liquid Level as a Function of Time (Training Data)",
+    ax1 = genAxis("Liquid Level as a Function of Time",
                   "Unix Time (s)", "Downstream Liquid Level (%)")
 
     slopes = []
@@ -85,20 +86,19 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
         m, b = polyfit(timeRuns[idx], run, 1)
         slopes.append(m)
 
-        # if isCalibration:
         ax1.plot(timeRuns[idx], run, label=(str(round(m, 6)) + "%/s @ "
                                             + str(heaterVals[idx]) + " W"))
 
         ax1.plot(timeRuns[idx], [m*x + b for x in timeRuns[idx]])
 
-    # if isCalibration:
     ax1.legend(loc='lower right')
 
     if isCalibration:
         ax2 = genAxis("Rate of Change of Liquid Level as a Function of Heat Load",
                       "Heat Load (W)", "dLL/dt (%/s)")
 
-        ax2.plot(heaterVals, slopes, marker="o", linestyle="None")
+        ax2.plot(heaterVals, slopes, marker="o", linestyle="None",
+                 label="Calibration Data")
 
         m, b = polyfit(heaterVals, slopes, 1)
 
@@ -109,7 +109,6 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
 
         ax2.legend(loc='upper right')
 
-        # plt.draw()
         return m, b, ax2, heaterVals
 
     else:
@@ -145,9 +144,7 @@ def getAverage():
 
         ax.plot(timeRuns[idx], [ave for _ in timeRuns[idx]])
 
-    ax.legend(loc="lower left")
     return slopes
-    # plt.show()
 
 
 # Sometimes the heater takes a little while to settle, especially after large
@@ -167,7 +164,7 @@ def adjustForHeaterSettle(heaterVals, runs, timeRuns):
 
 
 def populateRuns(inputBuffer, outputBuffer, levelLimit, refValvePos,
-                 valvePosTolerance, adjustment=0.0):
+                 valvePosTolerance, adjustment=0.0, cutoff=1000):
 
     def appendToBuffers(dataBuffers, startIdx, endIdx):
         for (runBuffer, dataBuffer) in dataBuffers:
@@ -190,7 +187,7 @@ def populateRuns(inputBuffer, outputBuffer, levelLimit, refValvePos,
                 or idx == len(inputBuffer) - 1):
 
             # Keeping only those runs with at least 1000 points
-            if idx - runStartIdx > 1000:
+            if idx - runStartIdx > cutoff:
                 inputVals.append(prevInputVal - adjustment)
                 appendToBuffers([(runs, outputBuffer), (timeRuns, unixTime)],
                                 runStartIdx, idx)
@@ -211,7 +208,8 @@ def genAxis(title, xlabel, ylabel):
 
 m, b, ax, calibrationVals = getLiquidLevelChange("LL_test_cropped.csv", "2",
                                                  REF_HEATER_VAL,
-                                                 VALVE_LOCKED_POS, 1.2, True)
+                                                 VALVE_LOCKED_POS, 1.2, True,
+                                                 "1")
 
 del time[:]
 del unixTime[:]
@@ -225,10 +223,14 @@ del upstreamLevel[:]
 # valveLockedPos = float(raw_input("JT Valve locked position: "))
 # valvePosTolerace = float(raw_input("JT Valve position tolerance: "))
 
-# slopes = getLiquidLevelChange("LL_test_cropped.csv", "2", refHeaterVal,
-#                               valveLockedPos, valvePosTolerace, False)
+refHeaterVal = 0
+valveLockedPos = 17.5
+valvePosTolerace = 1
 
-slopes = getAverage()
+slopes = getLiquidLevelChange("3_3_2019_1.csv", "2", refHeaterVal,
+                              valveLockedPos, valvePosTolerace, False, "2", 500)
+
+# slopes = getAverage()
 print slopes
 
 heaterVals = []
@@ -238,11 +240,23 @@ for dLL in slopes:
 
 print heaterVals
 
-ax.plot(heaterVals, slopes, marker="o", linestyle="None")
-if min(heaterVals) < min(calibrationVals):
-    ax.plot(range(int(min(heaterVals)), int(min(calibrationVals)) + 1),
-            [m*x + b for x in range(int(min(heaterVals)),
-                                    int(min(calibrationVals)) + 1)])
+ax.plot(heaterVals, slopes, marker="o", linestyle="None",
+        label="Projected Data")
+ax.legend(loc="lower left")
+
+minHeatProjected = min(heaterVals)
+minCalibrationHeat = min(calibrationVals)
+
+if minHeatProjected < minCalibrationHeat:
+    yRange = linspace(minHeatProjected, minCalibrationHeat)
+    ax.plot(yRange, [m * x + b for x in yRange])
+
+maxHeatProjected = max(heaterVals)
+maxCalibrationHeat = max(calibrationVals)
+
+if maxHeatProjected > maxCalibrationHeat:
+    yRange = linspace(maxCalibrationHeat, maxHeatProjected)
+    ax.plot(yRange, [m * x + b for x in yRange])
 
 plt.draw()
 plt.show()
