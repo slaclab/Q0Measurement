@@ -2,14 +2,16 @@ from __future__ import division
 from csv import reader
 from datetime import datetime
 from matplotlib import pyplot as plt
-from numpy import mean, std, polyfit, linspace, poly1d, sum as sum_np, array
+from numpy import mean, std, polyfit, linspace
 from sys import maxint, stderr
 from scipy.stats import linregress
 
 
 VALVE_LOCKED_POS = 17
 REF_HEATER_VAL = 1.91
-#REF_HEATER_VAL = 0
+
+EPOCH = datetime.utcfromtimestamp(0)
+
 
 # Could probably figure out a way to use numpy arrays if I get the line count
 # from the CSV
@@ -51,7 +53,8 @@ def parseData(fileName, cryoModule, cavity):
 
         for row in csvReader:
 
-            time.append(datetime.strptime(row[timeIdx], "%Y-%m-%d %H:%M:%S"))
+            time.append((datetime.strptime(row[timeIdx], "%Y-%m-%d %H:%M:%S")
+                         - EPOCH).total_seconds())
                                           
             for col, idxBuffDict in columnDict.iteritems():
                 idxBuffDict["buffer"].append(float(row[idxBuffDict["idx"]]))
@@ -89,16 +92,13 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
     for idx, run in enumerate(runs):
         m, b, r_val, p_val, std_err = linregress(timeRuns[idx], run)
         print r_val**2
-        #m, b  = polyfit(timeRuns[idx], run, 1)
-        
+
         slopes.append(m)
 
         ax1.plot(timeRuns[idx], run, label=(str(round(m, 6)) + "%/s @ "
                                             + str(heaterVals[idx]) + " W"))
 
         ax1.plot(timeRuns[idx], [m*x + b for x in timeRuns[idx]])
-        plt.draw()
-        plt.savefig("inputData" + "Calibration" if isCalibration else "" + ".png")
 
     if isCalibration:
         ax1.legend(loc='lower right')
@@ -196,7 +196,7 @@ def populateRuns(inputBuffer, outputBuffer, levelLimit, refValvePos,
             # Keeping only those runs with at least 1000 points
             if idx - runStartIdx > cutoff:
                 inputVals.append(prevInputVal - adjustment)
-                appendToBuffers([(runs, outputBuffer), (timeRuns, unixTime)],
+                appendToBuffers([(runs, outputBuffer), (timeRuns, time)],
                                 runStartIdx, idx)
             
             runStartIdx = idx
@@ -218,11 +218,10 @@ def calcQ0(gradient, inputHeatLoad, refGradient=16.0, refHeatLoad=9.6,
     return refQ0 * (refHeatLoad / inputHeatLoad) * ((gradient / refGradient)**2)
     
 
-m, b, ax, calibrationVals = getLiquidLevelChange("LL_test_cropped.csv", "2",
-                                                 REF_HEATER_VAL,
+m, b, ax, calibrationVals = getLiquidLevelChange("calib_2019-2-25_11_25_18672_CM12.csv",
+                                                 "2", REF_HEATER_VAL,
                                                  VALVE_LOCKED_POS, 1.2, True,
                                                  "1")
-plt.draw()
 
 del time[:]
 del unixTime[:]
@@ -244,7 +243,6 @@ slopes = getLiquidLevelChange("3_3_2019_1.csv", "2", refHeaterVal,
                               valveLockedPos, valvePosTolerace, False, "2", 500)
 
 # slopes = getAverage()
-print slopes
 
 heaterVals = []
 for dLL in slopes:
@@ -274,9 +272,10 @@ if maxHeatProjected > maxCalibrationHeat:
 for heatLoad in heaterVals:
     print calcQ0(18.0, heatLoad)
 
-plt.savefig("heatLoadVsLiquidLevel.png")
 plt.draw()
-plt.savefig("inputData.png")
-plt.show()
-# getAverage()
 
+for i in plt.get_fignums():
+    plt.figure(i)
+    plt.savefig("figure%d.png" % i)
+
+plt.show()
