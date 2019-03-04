@@ -2,13 +2,14 @@ from __future__ import division
 from csv import reader
 from datetime import datetime
 from matplotlib import pyplot as plt
-from numpy import mean, std, polyfit, linspace
+from numpy import mean, std, polyfit, linspace, poly1d, sum as sum_np, array
 from sys import maxint, stderr
+from scipy.stats import linregress
 
 
 VALVE_LOCKED_POS = 17
-# REF_HEATER_VAL = 1.91
-REF_HEATER_VAL = 0
+REF_HEATER_VAL = 1.91
+#REF_HEATER_VAL = 0
 
 # Could probably figure out a way to use numpy arrays if I get the line count
 # from the CSV
@@ -77,23 +78,30 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
     print "Heat Loads: " + str(heaterVals)
     adjustForHeaterSettle(heaterVals, runs, timeRuns)
     
+    for timeRun in timeRuns:
+        print "Duration of run: " + str((timeRun[-1] - timeRun[0])/60.0)
+    
     ax1 = genAxis("Liquid Level as a Function of Time",
                   "Unix Time (s)", "Downstream Liquid Level (%)")
 
     slopes = []
 
     for idx, run in enumerate(runs):
-        m, b = polyfit(timeRuns[idx], run, 1)
+        m, b, r_val, p_val, std_err = linregress(timeRuns[idx], run)
+        print r_val**2
+        #m, b  = polyfit(timeRuns[idx], run, 1)
+        
         slopes.append(m)
 
         ax1.plot(timeRuns[idx], run, label=(str(round(m, 6)) + "%/s @ "
                                             + str(heaterVals[idx]) + " W"))
 
         ax1.plot(timeRuns[idx], [m*x + b for x in timeRuns[idx]])
-
-    ax1.legend(loc='lower right')
+        plt.draw()
+        plt.savefig("inputData" + "Calibration" if isCalibration else "" + ".png")
 
     if isCalibration:
+        ax1.legend(loc='lower right')
         ax2 = genAxis("Rate of Change of Liquid Level as a Function of Heat Load",
                       "Heat Load (W)", "dLL/dt (%/s)")
 
@@ -101,8 +109,6 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
                  label="Calibration Data")
 
         m, b = polyfit(heaterVals, slopes, 1)
-
-        print (8*m + b)
 
         ax2.plot(heaterVals, [m*x + b for x in heaterVals],
                  label=(str(m)+" %/(s*W)"))
@@ -112,6 +118,7 @@ def getLiquidLevelChange(dataFile, cryoModule, refHeaterVal, refValvePos,
         return m, b, ax2, heaterVals
 
     else:
+        ax1.legend(loc='upper right')
         return slopes
 
     
@@ -206,10 +213,16 @@ def genAxis(title, xlabel, ylabel):
     return ax
 
 
+def calcQ0(gradient, inputHeatLoad, refGradient=16.0, refHeatLoad=9.6,
+           refQ0=2.7E10):
+    return refQ0 * (refHeatLoad / inputHeatLoad) * ((gradient / refGradient)**2)
+    
+
 m, b, ax, calibrationVals = getLiquidLevelChange("LL_test_cropped.csv", "2",
                                                  REF_HEATER_VAL,
                                                  VALVE_LOCKED_POS, 1.2, True,
                                                  "1")
+plt.draw()
 
 del time[:]
 del unixTime[:]
@@ -223,7 +236,7 @@ del upstreamLevel[:]
 # valveLockedPos = float(raw_input("JT Valve locked position: "))
 # valvePosTolerace = float(raw_input("JT Valve position tolerance: "))
 
-refHeaterVal = 0
+refHeaterVal = 1.91
 valveLockedPos = 17.5
 valvePosTolerace = 1
 
@@ -257,11 +270,13 @@ maxCalibrationHeat = max(calibrationVals)
 if maxHeatProjected > maxCalibrationHeat:
     yRange = linspace(maxCalibrationHeat, maxHeatProjected)
     ax.plot(yRange, [m * x + b for x in yRange])
+    
+for heatLoad in heaterVals:
+    print calcQ0(18.0, heatLoad)
 
+plt.savefig("heatLoadVsLiquidLevel.png")
 plt.draw()
+plt.savefig("inputData.png")
 plt.show()
 # getAverage()
 
-def calcQ0(gradient, inputHeatLoad, refGradient=16., refHeatLoad=9.6,
-           refQ0=2.7E10):
-    return refQ0 * (refHeatLoad / inputHeatLoad) * (gradient / refGradient) ^ 2
