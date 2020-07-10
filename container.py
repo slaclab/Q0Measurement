@@ -475,7 +475,7 @@ class Cryomodule(Container):
 
         startTime = datetime.now().replace(microsecond=0)
 
-        launchHeaterRun(1)
+        launchHeaterRun(8)
         if (self.liquidLevelDS - MIN_DS_LL) < TARGET_LL_DIFF:
             print("Please ask the cryo group to refill to {LL} on the"
                   " downstream sensor".format(LL=MAX_DS_LL))

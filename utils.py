@@ -61,13 +61,13 @@ FNULL = open(devnull, "w")
 
 # TODO: Add an INITIAL_CAL_HEAT_LOAD or something like that
 # The number of distinct heater settings we're using for cryomodule calibrations
-NUM_CAL_STEPS = 10
+NUM_CAL_STEPS = 12
 
 NUM_LL_POINTS_TO_AVG = 25
 
 CAV_HEATER_RUN_LOAD = 16
 
-CAL_HEATER_DELTA = 0.2
+CAL_HEATER_DELTA = 1
 
 JT_SEARCH_TIME_RANGE = 24
 JT_SEARCH_HOURS_PER_STEP = 0.5
