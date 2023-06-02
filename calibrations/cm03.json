@@ -30,5 +30,13 @@
         "Total Reference Heater Setpoint": 48.0,
         "Total Reference Heater Readback": 48.0,
         "JT Valve Position": 32.0
+    },
+    "06/02/23 10:25:48": {
+        "Start Time": "06/02/23 10:25:48",
+        "Calculated Heat vs dll/dt Slope": -8.286231062017615e-05,
+        "Calculated Adjustment": -0.00031212148871467664,
+        "Total Reference Heater Setpoint": 48.0,
+        "Total Reference Heater Readback": 48.0,
+        "JT Valve Position": 32.0
     }
 }
