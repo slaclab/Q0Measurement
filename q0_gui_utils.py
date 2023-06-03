@@ -10,7 +10,7 @@ from PyQt5.QtWidgets import (QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout
                              QRadioButton)
 from epics import caget, caput
 from lcls_tools.superconducting.scLinac import Cavity
-from lcls_tools.superconducting.sc_linac_utils import CavityAbortError
+from lcls_tools.superconducting.scLinacUtils import CavityAbortError
 from pydm.widgets import PyDMLabel
 from requests import ConnectTimeout
 from urllib3.exceptions import ConnectTimeoutError
