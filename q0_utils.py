@@ -97,6 +97,10 @@ class DataError(Exception):
     pass
 
 
+class Q0AbortError(Exception):
+    pass
+
+
 class DataRun:
     def __init__(self, reference_heat=0):
         self.ll_data: Dict[float, float] = {}

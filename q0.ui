@@ -101,171 +101,6 @@
       <string>Cryo Controls</string>
      </property>
      <layout class="QGridLayout" name="gridLayout_2">
-      <item row="2" column="1" colspan="2">
-       <widget class="QGroupBox" name="groupBox_4">
-        <property name="title">
-         <string>JT</string>
-        </property>
-        <layout class="QGridLayout" name="gridLayout_5">
-         <item row="1" column="0">
-          <widget class="QLabel" name="label_6">
-           <property name="text">
-            <string>Setpoint:</string>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="2">
-          <widget class="PyDMLabel" name="jt_mode_label">
-           <property name="toolTip">
-            <string/>
-           </property>
-           <property name="alarmSensitiveContent" stdset="0">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="1">
-          <widget class="PyDMSpinbox" name="jt_setpoint_spinbox">
-           <property name="toolTip">
-            <string/>
-           </property>
-           <property name="maximum">
-            <double>75.000000000000000</double>
-           </property>
-           <property name="showUnits" stdset="0">
-            <bool>true</bool>
-           </property>
-           <property name="precisionFromPV" stdset="0">
-            <bool>true</bool>
-           </property>
-           <property name="alarmSensitiveContent" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="alarmSensitiveBorder" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="channel" stdset="0">
-            <string/>
-           </property>
-           <property name="precision" stdset="0">
-            <number>0</number>
-           </property>
-           <property name="showStepExponent" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="writeOnPress" stdset="0">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="1" column="2">
-          <widget class="PyDMLabel" name="jt_setpoint_readback">
-           <property name="toolTip">
-            <string/>
-           </property>
-           <property name="showUnits" stdset="0">
-            <bool>true</bool>
-           </property>
-           <property name="alarmSensitiveContent" stdset="0">
-            <bool>true</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="0">
-          <widget class="PyDMPushButton" name="jt_man_button">
-           <property name="toolTip">
-            <string/>
-           </property>
-           <property name="text">
-            <string>Manual</string>
-           </property>
-           <property name="alarmSensitiveContent" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="alarmSensitiveBorder" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="channel" stdset="0">
-            <string/>
-           </property>
-           <property name="passwordProtected" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="password" stdset="0">
-            <string/>
-           </property>
-           <property name="protectedPassword" stdset="0">
-            <string/>
-           </property>
-           <property name="showConfirmDialog" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="confirmMessage" stdset="0">
-            <string>Are you sure you want to proceed?</string>
-           </property>
-           <property name="pressValue" stdset="0">
-            <string>1</string>
-           </property>
-           <property name="releaseValue" stdset="0">
-            <string>None</string>
-           </property>
-           <property name="relativeChange" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="writeWhenRelease" stdset="0">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-         <item row="0" column="1">
-          <widget class="PyDMPushButton" name="jt_auto_button">
-           <property name="toolTip">
-            <string/>
-           </property>
-           <property name="text">
-            <string>Auto</string>
-           </property>
-           <property name="alarmSensitiveContent" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="alarmSensitiveBorder" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="channel" stdset="0">
-            <string/>
-           </property>
-           <property name="passwordProtected" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="password" stdset="0">
-            <string/>
-           </property>
-           <property name="protectedPassword" stdset="0">
-            <string/>
-           </property>
-           <property name="showConfirmDialog" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="confirmMessage" stdset="0">
-            <string>Are you sure you want to proceed?</string>
-           </property>
-           <property name="pressValue" stdset="0">
-            <string>1</string>
-           </property>
-           <property name="releaseValue" stdset="0">
-            <string>None</string>
-           </property>
-           <property name="relativeChange" stdset="0">
-            <bool>false</bool>
-           </property>
-           <property name="writeWhenRelease" stdset="0">
-            <bool>false</bool>
-           </property>
-          </widget>
-         </item>
-        </layout>
-       </widget>
-      </item>
       <item row="2" column="3">
        <widget class="QGroupBox" name="groupBox_8">
         <property name="title">
@@ -434,6 +269,181 @@
         </layout>
        </widget>
       </item>
+      <item row="2" column="1" colspan="2">
+       <widget class="QGroupBox" name="groupBox_4">
+        <property name="title">
+         <string>JT</string>
+        </property>
+        <layout class="QGridLayout" name="gridLayout_5">
+         <item row="1" column="0">
+          <widget class="QLabel" name="label_6">
+           <property name="text">
+            <string>Setpoint:</string>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="2">
+          <widget class="PyDMLabel" name="jt_mode_label">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="alarmSensitiveContent" stdset="0">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="1">
+          <widget class="PyDMSpinbox" name="jt_setpoint_spinbox">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="minimum">
+            <double>5.000000000000000</double>
+           </property>
+           <property name="maximum">
+            <double>70.000000000000000</double>
+           </property>
+           <property name="showUnits" stdset="0">
+            <bool>true</bool>
+           </property>
+           <property name="precisionFromPV" stdset="0">
+            <bool>true</bool>
+           </property>
+           <property name="alarmSensitiveContent" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="alarmSensitiveBorder" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="channel" stdset="0">
+            <string/>
+           </property>
+           <property name="precision" stdset="0">
+            <number>0</number>
+           </property>
+           <property name="showStepExponent" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="writeOnPress" stdset="0">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="1" column="2">
+          <widget class="PyDMLabel" name="jt_setpoint_readback">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="showUnits" stdset="0">
+            <bool>true</bool>
+           </property>
+           <property name="alarmSensitiveContent" stdset="0">
+            <bool>true</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="0">
+          <widget class="PyDMPushButton" name="jt_man_button">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="text">
+            <string>Manual</string>
+           </property>
+           <property name="alarmSensitiveContent" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="alarmSensitiveBorder" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="channel" stdset="0">
+            <string/>
+           </property>
+           <property name="passwordProtected" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="password" stdset="0">
+            <string/>
+           </property>
+           <property name="protectedPassword" stdset="0">
+            <string/>
+           </property>
+           <property name="showConfirmDialog" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="confirmMessage" stdset="0">
+            <string>Are you sure you want to proceed?</string>
+           </property>
+           <property name="pressValue" stdset="0">
+            <string>1</string>
+           </property>
+           <property name="releaseValue" stdset="0">
+            <string>None</string>
+           </property>
+           <property name="relativeChange" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="writeWhenRelease" stdset="0">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+         <item row="0" column="1">
+          <widget class="PyDMPushButton" name="jt_auto_button">
+           <property name="toolTip">
+            <string/>
+           </property>
+           <property name="text">
+            <string>Auto</string>
+           </property>
+           <property name="alarmSensitiveContent" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="alarmSensitiveBorder" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="channel" stdset="0">
+            <string/>
+           </property>
+           <property name="passwordProtected" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="password" stdset="0">
+            <string/>
+           </property>
+           <property name="protectedPassword" stdset="0">
+            <string/>
+           </property>
+           <property name="showConfirmDialog" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="confirmMessage" stdset="0">
+            <string>Are you sure you want to proceed?</string>
+           </property>
+           <property name="pressValue" stdset="0">
+            <string>1</string>
+           </property>
+           <property name="releaseValue" stdset="0">
+            <string>None</string>
+           </property>
+           <property name="relativeChange" stdset="0">
+            <bool>false</bool>
+           </property>
+           <property name="writeWhenRelease" stdset="0">
+            <bool>false</bool>
+           </property>
+          </widget>
+         </item>
+        </layout>
+       </widget>
+      </item>
+      <item row="3" column="1" colspan="3">
+       <widget class="QPushButton" name="restore_cryo_button">
+        <property name="text">
+         <string>Restore Cryo to Standard Values</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </widget>
    </item>
@@ -545,7 +555,7 @@
          <item row="0" column="1">
           <widget class="QDoubleSpinBox" name="start_heat_spinbox">
            <property name="minimum">
-            <double>100.000000000000000</double>
+            <double>75.000000000000000</double>
            </property>
            <property name="maximum">
             <double>130.000000000000000</double>

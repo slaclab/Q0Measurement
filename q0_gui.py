@@ -40,10 +40,10 @@ class Q0GUI(Display):
         self.rf_option_windows: Dict[str, Display] = {}
         self.ui.show_rf_button.clicked.connect(self.show_q0_data)
         
-        self.calibration_worker: q0_gui_utils.Worker = None
-        self.q0_setup_worker: q0_gui_utils.Worker = None
-        self.q0_ramp_workers: Dict[int, q0_gui_utils.Worker] = {i: None for i in range(1, 9)}
-        self.q0_meas_worker: q0_gui_utils.Worker = None
+        self.calibration_worker: CalibrationWorker = None
+        self.q0_setup_worker: q0_gui_utils.Q0SetupWorker = None
+        self.q0_ramp_workers: Dict[int, q0_gui_utils.CavityRampWorker] = {i: None for i in range(1, 9)}
+        self.q0_meas_worker: q0_gui_utils.Q0Worker = None
         self.cryo_param_setup_worker: q0_gui_utils.CryoParamSetupWorker = None
         
         self.ui.setup_param_button.clicked.connect(self.setup_for_cryo_params)
@@ -73,23 +73,29 @@ class Q0GUI(Display):
         
         self.ui.abort_rf_button.clicked.connect(self.kill_rf)
         self.ui.abort_cal_button.clicked.connect(self.kill_calibration)
+        
+        self.ui.restore_cryo_button.clicked.connect(self.restore_cryo)
+    
+    @pyqtSlot()
+    def restore_cryo(self):
+        self.selectedCM.restore_cryo()
     
     @pyqtSlot()
     def kill_rf(self):
         if self.q0_setup_worker:
-            self.q0_setup_worker.terminate()
+            self.q0_setup_worker.cryomodule.abort_flag = True
         
         for worker in self.q0_ramp_workers.values():
             if worker:
-                worker.terminate()
+                worker.cavity.abort_flag = True
         
         if self.q0_meas_worker:
-            self.q0_meas_worker.terminate()
+            self.q0_meas_worker.cryomodule.abort_flag = True
     
     @pyqtSlot()
     def kill_calibration(self):
         if self.calibration_worker:
-            self.calibration_worker.terminate()
+            self.calibration_worker.cryomodule.abort_flag = True
     
     @pyqtSlot(str)
     def update_cm(self, current_text):
@@ -286,6 +292,8 @@ class Q0GUI(Display):
         for cav_num, cav_amp_control in self.cav_amp_controls.items():
             if cav_amp_control.groupbox.isChecked():
                 amplitudes[cav_num] = cav_amp_control.desAmpSpinbox.value()
+            else:
+                amplitudes[cav_num] = 0
         print(f"Cavity amplitudes: {amplitudes}")
         return amplitudes
     

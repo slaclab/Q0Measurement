@@ -1,7 +1,6 @@
 import json
 from datetime import datetime, timedelta
 from functools import partial
-from time import sleep
 from typing import Dict
 
 import numpy as np
@@ -11,6 +10,7 @@ from PyQt5.QtWidgets import (QDoubleSpinBox, QGridLayout, QGroupBox, QHBoxLayout
                              QRadioButton)
 from epics import caget, caput
 from lcls_tools.superconducting.scLinac import Cavity
+from lcls_tools.superconducting.sc_linac_utils import CavityAbortError
 from pydm.widgets import PyDMLabel
 from requests import ConnectTimeout
 from urllib3.exceptions import ConnectTimeoutError
@@ -59,9 +59,8 @@ class CryoParamSetupWorker(Worker):
             self.error.emit("Required cryo permissions not granted - call cryo ops")
             return
         
-        caput(self.cryomodule.heater_manual_pv, 1, wait=True)
-        sleep(3)
-        caput(self.cryomodule.heater_setpoint_pv, self.heater_setpoint)
+        self.cryomodule.heater_power = self.heater_setpoint
+        self.cryomodule.jt_position = 35
         caput(self.cryomodule.jtAutoSelectPV, 1, wait=True)
         self.finished.emit("Cryo setup for new reference parameters in ~1 hour")
 
@@ -76,10 +75,13 @@ class CryoParamWorker(Worker):
         self.end_time: datetime = end_time
     
     def run(self) -> None:
-        self.status.emit("Getting new reference cryo parameters")
-        self.cryomodule.getRefValveParams(start_time=self.start_time,
-                                          end_time=self.end_time)
-        self.finished.emit("New reference cryo params loaded")
+        try:
+            self.status.emit("Getting new reference cryo parameters")
+            self.cryomodule.getRefValveParams(start_time=self.start_time,
+                                              end_time=self.end_time)
+            self.finished.emit("New reference cryo params loaded")
+        except (CavityAbortError, q0_utils.Q0AbortError) as e:
+            self.error.emit(str(e))
 
 
 class RFWorker(Worker):
@@ -109,7 +111,7 @@ class Q0Worker(RFWorker):
                                                  desired_ll=self.desired_ll,
                                                  ll_drop=self.ll_drop)
             self.finished.emit(f"Recorded Q0: {self.cryomodule.q0_measurement.q0:.2e}")
-        except TypeError as e:
+        except (TypeError, CavityAbortError, q0_utils.Q0AbortError) as e:
             self.error.emit(str(e))
 
 
@@ -119,11 +121,16 @@ class Q0SetupWorker(RFWorker):
         if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
             self.error.emit("Required cryo permissions not granted - call cryo ops")
             return
-        self.cryomodule.setup_for_q0(desiredAmplitudes=self.desired_amplitudes,
-                                     desired_ll=self.desired_ll,
-                                     jt_search_start=self.jt_search_start,
-                                     jt_search_end=self.jt_search_end)
-        self.finished.emit(f"CM{self.cryomodule.name} ready for cavity ramp up")
+        
+        try:
+            self.status.emit(f"CM{self.cryomodule.name} setting up for RF measurement")
+            self.cryomodule.setup_for_q0(desiredAmplitudes=self.desired_amplitudes,
+                                         desired_ll=self.desired_ll,
+                                         jt_search_start=self.jt_search_start,
+                                         jt_search_end=self.jt_search_end)
+            self.finished.emit(f"CM{self.cryomodule.name} ready for cavity ramp up")
+        except (CavityAbortError, q0_utils.Q0AbortError) as e:
+            self.error.emit(str(e))
 
 
 class CavityRampWorker(Worker):
@@ -133,10 +140,13 @@ class CavityRampWorker(Worker):
         self.des_amp = des_amp
     
     def run(self) -> None:
-        self.status.emit(f"Ramping Cavity {self.cavity.number} to {self.des_amp}")
-        self.cavity.turnOn()
-        self.cavity.walk_amp(self.des_amp, step_size=0.1)
-        self.finished.emit(f"Cavity {self.cavity.number} ramped up to {self.des_amp}")
+        try:
+            self.status.emit(f"Ramping Cavity {self.cavity.number} to {self.des_amp}")
+            self.cavity.turnOn()
+            self.cavity.walk_amp(self.des_amp, step_size=0.1)
+            self.finished.emit(f"Cavity {self.cavity.number} ramped up to {self.des_amp}")
+        except (CavityAbortError, q0_utils.Q0AbortError) as e:
+            self.error.emit(str(e))
 
 
 class CalibrationWorker(Worker):
@@ -169,7 +179,8 @@ class CalibrationWorker(Worker):
                                                heat_start=self.heat_start,
                                                heat_end=self.heat_end)
             self.finished.emit("Calibration Loaded")
-        except (ConnectTimeoutError, ConnectTimeout, q0_utils.CryoError) as e:
+        except (ConnectTimeoutError, ConnectTimeout, q0_utils.CryoError,
+                q0_utils.Q0AbortError) as e:
             self.error.emit(str(e))
 
 

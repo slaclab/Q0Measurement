@@ -358,9 +358,19 @@ class Q0Cryomodule(Cryomodule):
         self.cavity_amplitudes = {}
         
         self.fill_data_run_buffer = False
+        
+        self.abort_flag: bool = False
     
     def __str__(self):
         return f"CM{self.name}"
+    
+    def check_abort(self):
+        if self.abort_flag:
+            self.abort_flag = False
+            self.restore_cryo()
+            for cavity in self.cavities.values():
+                cavity.abort_flag = True
+            raise q0_utils.Q0AbortError(f"Abort requested for {self}")
     
     @property
     def calib_data_file(self):
@@ -438,6 +448,7 @@ class Q0Cryomodule(Cryomodule):
     def heater_power(self, value):
         
         while caget(self.heater_mode_pv) != q0_utils.HEATER_MANUAL_VALUE:
+            self.check_abort()
             print(f"Setting {self} heaters to manual and waiting 3s")
             caput(self.heater_manual_pv, 1, wait=True)
             sleep(3)
@@ -448,7 +459,7 @@ class Q0Cryomodule(Cryomodule):
     
     @property
     def ds_liquid_level(self):
-        return caget(self.ds_level_pv)
+        return caget(self.dsLevelPV)
     
     @ds_liquid_level.setter
     def ds_liquid_level(self, value):
@@ -484,6 +495,7 @@ class Q0Cryomodule(Cryomodule):
         window_start = start_time
         window_end = start_time + q0_utils.DELTA_NEEDED_FOR_FLATNESS
         while window_end <= end_time:
+            self.check_abort()
             print(f"\nChecking window {window_start} to {window_end}")
             
             data = q0_utils.ARCHIVER.getValuesOverTimeRange(pvList=[self.dsLevelPV],
@@ -538,6 +550,7 @@ class Q0Cryomodule(Cryomodule):
         
         start = datetime.now()
         while (datetime.now() - start) < timedelta(minutes=30):
+            self.check_abort()
             sleep(5)
         
         # Try again but only search the recent past. We have to manipulate the
@@ -577,6 +590,7 @@ class Q0Cryomodule(Cryomodule):
         avgLevel = startingLevel
         while ((startingLevel - avgLevel) < target_ll_diff
                and (avgLevel > q0_utils.MIN_DS_LL)):
+            self.check_abort()
             print(f"Averaged level is {avgLevel}; waiting 10s")
             avgLevel = self.averaged_liquid_level
             sleep(10)
@@ -598,6 +612,7 @@ class Q0Cryomodule(Cryomodule):
         
         for cav_num, des_amp in desiredAmplitudes.items():
             while abs(caget(self.cavities[cav_num].selAmplitudeActPV.pvname) - des_amp) > 0.1:
+                self.check_abort()
                 print(f"Waiting for CM{self.name} cavity {cav_num} to be ready")
                 sleep(5)
         
@@ -644,9 +659,7 @@ class Q0Cryomodule(Cryomodule):
         
         print("Caluclated Q0: ", self.q0_measurement.q0)
         self.q0_measurement.save_results()
-        caput(self.heater_sequencer_pv, 1, wait=True)
-        caput(self.jtAutoSelectPV, 1, wait=True)
-        self.ds_liquid_level = 92
+        self.restore_cryo()
     
     def setup_for_q0(self, desiredAmplitudes, desired_ll, jt_search_end, jt_search_start):
         self.q0_measurement = Q0Measurement(cryomodule=self)
@@ -709,14 +722,16 @@ class Q0Cryomodule(Cryomodule):
         
         self.heater_power = self.valveParams.refHeatLoadDes
         
-        print("Restoring initial cryo conditions")
-        
-        caput(self.jtAutoSelectPV, 1, wait=True)
-        self.ds_liquid_level = 92
-        caput(self.heater_sequencer_pv, 1, wait=True)
+        self.restore_cryo()
         
         self.calibration.save_results()
         camonitor_clear(self.dsLevelPV)
+    
+    def restore_cryo(self):
+        print("Restoring initial cryo conditions")
+        caput(self.jtAutoSelectPV, 1, wait=True)
+        self.ds_liquid_level = 92
+        caput(self.heater_sequencer_pv, 1, wait=True)
     
     def setup_cryo_for_measurement(self, desired_ll, turn_cavities_off: bool = True):
         self.fill(desired_ll, turn_cavities_off=turn_cavities_off)
@@ -738,6 +753,7 @@ class Q0Cryomodule(Cryomodule):
         # One way for the JT valve to be locked in the correct position is for
         # it to be in manual mode and at the desired value
         while caget(self.jtModePV) != q0_utils.JT_MANUAL_MODE_VALUE:
+            self.check_abort()
             sleep(1)
         
         print(f"Walking {self} JT to {value}%")
@@ -750,6 +766,7 @@ class Q0Cryomodule(Cryomodule):
         print(f"Waiting for {self} JT Valve position to be in tolerance")
         # Wait for the valve position to be within tolerance before continuing
         while abs(self.jt_position - value) > q0_utils.VALVE_POS_TOL:
+            self.check_abort()
             sleep(1)
         
         print(f"{self} JT Valve at {value}")
@@ -758,6 +775,7 @@ class Q0Cryomodule(Cryomodule):
         print(f"Waiting for downstream liquid level to be {desiredLiquidLevel}%")
         
         while (desiredLiquidLevel - self.averaged_liquid_level) > 0.01:
+            self.check_abort()
             print(f"Current averaged level is {self.averaged_liquid_level}; waiting 10 seconds for more data.")
             sleep(10)
         
