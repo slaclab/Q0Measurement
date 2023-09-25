@@ -329,9 +329,19 @@ class Q0Cavity(Cavity):
     ):
         super().__init__(cavityNum, rackObject)
         self.ready_for_q0 = False
+        self.heater_readback_pv: str = (
+            f"CHTR:CM{self.cryomodule.name}:1{self.number}55:HV:POWER_RBV"
+        )
+        self._heater_readback_pv_obj: Optional[PV] = None
 
     def mark_ready(self):
         self.ready_for_q0 = True
+
+    @property
+    def heater_power(self) -> float:
+        if not self._heater_readback_pv_obj:
+            self._heater_readback_pv_obj = PV(self.heater_readback_pv)
+        return self._heater_readback_pv_obj.get()
 
 
 class Q0Cryomodule(Cryomodule):
@@ -465,9 +475,10 @@ class Q0Cryomodule(Cryomodule):
         return self._calib_idx_file
 
     def shut_off(self):
-        print("Restoring cryo")
-        caput(self.heater_sequencer_pv, 1, wait=True)
-        caput(self.jtAutoSelectPV, 1, wait=True)
+        print("Setting heaters to sequencer and JT to auto")
+        if q0_utils.LCLS:
+            caput(self.heater_sequencer_pv, 1, wait=True)
+            caput(self.jtAutoSelectPV, 1, wait=True)
         print("Turning cavities and SSAs off")
         for cavity in self.cavities.values():
             cavity.turnOff()
@@ -475,7 +486,13 @@ class Q0Cryomodule(Cryomodule):
 
     @property
     def heater_power(self):
-        return caget(self.heater_readback_pv)
+        if q0_utils.LCLS:
+            return caget(self.heater_readback_pv)
+        else:
+            heater_power = 0
+            for cavity in self.cavities.values():
+                heater_power += cavity.heater_power
+            return heater_power
 
     @heater_power.setter
     def heater_power(self, value):
@@ -504,10 +521,12 @@ class Q0Cryomodule(Cryomodule):
         self.ds_level_pv_obj.put(value)
 
     def fill(self, desired_level=q0_utils.MAX_DS_LL, turn_cavities_off: bool = True):
-        self.ds_liquid_level = desired_level
-        print(f"Setting JT to auto for refill to {desired_level}")
-        caput(self.jtAutoSelectPV, 1, wait=True)
-        self.heater_power = 0
+        print(f"Setting JT to auto for refill to {desired_level} and heater power to 0")
+
+        if q0_utils.LCLS:
+            self.ds_liquid_level = desired_level
+            caput(self.jtAutoSelectPV, 1, wait=True)
+            self.heater_power = 0
 
         if turn_cavities_off:
             for cavity in self.cavities.values():
@@ -798,10 +817,13 @@ class Q0Cryomodule(Cryomodule):
         camonitor_clear(self.ds_level_pv)
 
     def restore_cryo(self):
-        print("Restoring initial cryo conditions")
-        caput(self.jtAutoSelectPV, 1, wait=True)
-        self.ds_liquid_level = 92
-        caput(self.heater_sequencer_pv, 1, wait=True)
+        if q0_utils.LCLS:
+            print("Restoring initial cryo conditions")
+            caput(self.jtAutoSelectPV, 1, wait=True)
+            self.ds_liquid_level = 92
+            caput(self.heater_sequencer_pv, 1, wait=True)
+        else:
+            print("Set JT to Auto, DS setpoint to 92, and heaters to sequencer")
 
     def setup_cryo_for_measurement(self, desired_ll, turn_cavities_off: bool = True):
         self.fill(desired_ll, turn_cavities_off=turn_cavities_off)

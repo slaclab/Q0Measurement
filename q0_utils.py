@@ -13,6 +13,8 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from scipy.stats import linregress, siegelslopes
 
+LCLS = False
+
 USE_SIEGELSLOPES = True
 
 DATETIME_FORMATTER = "%m/%d/%y %H:%M:%S"

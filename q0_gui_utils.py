@@ -61,7 +61,10 @@ class CryoParamSetupWorker(Worker):
 
     def run(self) -> None:
         self.status.emit("Checking for required cryo permissions")
-        if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
+        if (
+            q0_utils.LCLS
+            and caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE
+        ):
             self.error.emit("Required cryo permissions not granted - call cryo ops")
             return
 
@@ -188,7 +191,10 @@ class CalibrationWorker(Worker):
         self.ll_drop = ll_drop
 
     def run(self) -> None:
-        if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
+        if (
+            q0_utils.LCLS
+            and caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE
+        ):
             self.error.emit("Required cryo permissions not granted - call cryo ops")
             return
         try:
