@@ -13,7 +13,7 @@ from matplotlib.axes import Axes
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from scipy.stats import linregress, siegelslopes
 
-LCLS = False
+IS_LCLS = False
 
 USE_SIEGELSLOPES = True
 

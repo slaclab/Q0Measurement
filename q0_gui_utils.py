@@ -60,18 +60,20 @@ class CryoParamSetupWorker(Worker):
         self.heater_setpoint = heater_setpoint
 
     def run(self) -> None:
-        self.status.emit("Checking for required cryo permissions")
-        if (
-            q0_utils.LCLS
-            and caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE
-        ):
-            self.error.emit("Required cryo permissions not granted - call cryo ops")
-            return
+        if q0_utils.IS_LCLS:
+            self.status.emit("Checking for required cryo permissions")
+            if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
+                self.error.emit("Required cryo permissions not granted - call cryo ops")
+                return
 
-        self.cryomodule.heater_power = self.heater_setpoint
-        self.cryomodule.jt_position = 35
-        caput(self.cryomodule.jtAutoSelectPV, 1, wait=True)
-        self.finished.emit("Cryo setup for new reference parameters in ~1 hour")
+            self.cryomodule.heater_power = self.heater_setpoint
+            self.cryomodule.jt_position = 35
+            caput(self.cryomodule.jtAutoSelectPV, 1, wait=True)
+            self.finished.emit("Cryo setup for new reference parameters in ~1 hour")
+        else:
+            print(
+                f"Set heater power to {self.heater_setpoint} and JT to 35, then put JT in auto and wait for an hour"
+            )
 
 
 class CryoParamWorker(Worker):
@@ -192,7 +194,7 @@ class CalibrationWorker(Worker):
 
     def run(self) -> None:
         if (
-            q0_utils.LCLS
+            q0_utils.IS_LCLS
             and caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE
         ):
             self.error.emit("Required cryo permissions not granted - call cryo ops")
