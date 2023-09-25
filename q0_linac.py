@@ -664,21 +664,20 @@ class Q0Cryomodule(Cryomodule):
             self.fill_data_run_buffer = False
             camonitor_clear(self.heater_readback_pv)
         else:
-
-            def record_heaters():
-                self.current_data_run.heater_readback_buffer.append(self.heater_power)
-
             self.fill_data_run_buffer = True
             self.wait_for_ll_drop(
                 target_ll_diff=target_ll_diff,
                 time_to_wait=5,
-                target_functions=[record_heaters],
+                target_functions=[self.record_heater_sum],
             )
             self.fill_data_run_buffer = False
 
         self.current_data_run.end_time = datetime.now()
 
         print("Heater run done")
+
+    def record_heater_sum(self):
+        self.current_data_run.heater_readback_buffer.append(self.heater_power)
 
     def wait_for_ll_drop(
         self,
@@ -729,7 +728,10 @@ class Q0Cryomodule(Cryomodule):
 
         self.current_data_run: RFRun = self.q0_measurement.rf_run
         self.q0_measurement.rf_run.reference_heat = self.valveParams.refHeatLoadAct
-        camonitor(self.heater_readback_pv, callback=self.fill_heater_readback_buffer)
+        if q0_utils.IS_LCLS:
+            camonitor(
+                self.heater_readback_pv, callback=self.fill_heater_readback_buffer
+            )
         camonitor(self.ds_pressure_pv, callback=self.fill_pressure_buffer)
 
         start_time = datetime.now()
@@ -737,9 +739,16 @@ class Q0Cryomodule(Cryomodule):
         self.q0_measurement.rf_run.start_time = start_time
 
         self.fill_data_run_buffer = True
-        self.wait_for_ll_drop(ll_drop)
+        self.wait_for_ll_drop(
+            ll_drop,
+            time_to_wait=5,
+            target_functions=[self.record_heater_sum] if not q0_utils.IS_LCLS else None,
+        )
         self.fill_data_run_buffer = False
-        camonitor_clear(self.heater_readback_pv)
+
+        if q0_utils.IS_LCLS:
+            camonitor_clear(self.heater_readback_pv)
+
         camonitor_clear(self.ds_pressure_pv)
         self.q0_measurement.rf_run.end_time = datetime.now()
 
@@ -760,10 +769,7 @@ class Q0Cryomodule(Cryomodule):
         self.q0_measurement.save_data()
 
         end_time = datetime.now()
-        caput(
-            self.heater_setpoint_pv,
-            caget(self.heater_readback_pv) - q0_utils.FULL_MODULE_CALIBRATION_LOAD,
-        )
+        self.heater_power = self.heater_power - q0_utils.FULL_MODULE_CALIBRATION_LOAD
 
         camonitor_clear(self.ds_level_pv)
 
