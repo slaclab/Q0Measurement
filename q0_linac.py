@@ -535,8 +535,17 @@ class Q0Cryomodule(Cryomodule):
         self.ds_level_pv_obj.put(value)
 
     def fill(self, desired_level=q0_utils.MAX_DS_LL, turn_cavities_off: bool = True):
-        print(f"Setting JT to auto for refill to {desired_level} and heater power to 0")
+        if q0_utils.IS_LCLS:
+            print(f"Setting JT to auto for refill to {desired_level}")
+            self.ds_liquid_level = desired_level
+            caput(self.jtAutoSelectPV, 1, wait=True)
+        else:
+            print(
+                f"Set JT to auto for refill to {desired_level} (will wait for 10s before proceeding)"
+            )
+            sleep(10)
 
+        print(f"Setting {self} heater power to 0")
         self.heater_power = 0
 
         if turn_cavities_off:

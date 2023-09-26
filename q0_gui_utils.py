@@ -72,7 +72,7 @@ class CryoParamSetupWorker(Worker):
             self.finished.emit("Cryo setup for new reference parameters in ~1 hour")
         else:
             self.status.emit(
-                f"Set heater power to {self.heater_setpoint} and JT to 35, then put JT in auto and wait for an hour"
+                f"Set heater power to {self.heater_setpoint} and JT to 35%, then put JT in auto and wait for an hour"
             )
 
 
