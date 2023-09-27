@@ -135,9 +135,10 @@ class Q0Worker(RFWorker):
 
 class Q0SetupWorker(RFWorker):
     def run(self) -> None:
-        if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
-            self.error.emit("Required cryo permissions not granted - call cryo ops")
-            return
+        if q0_utils.IS_LCLS:
+            if caget(self.cryomodule.cryo_access_pv) != q0_utils.CRYO_ACCESS_VALUE:
+                self.error.emit("Required cryo permissions not granted - call cryo ops")
+                return
 
         try:
             self.status.emit(f"CM{self.cryomodule.name} setting up for RF measurement")
