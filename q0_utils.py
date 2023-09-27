@@ -14,6 +14,7 @@ from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
 from scipy.stats import linregress, siegelslopes
 
 IS_LCLS = False
+HEATER_WATTS_PER_SECOND = 0.5
 
 USE_SIEGELSLOPES = True
 

@@ -350,7 +350,22 @@ class Q0Cavity(Cavity):
     def heater_power(self, value):
         if not self._heater_setpoint_pv_obj:
             self._heater_setpoint_pv_obj = PV(self.heater_setpoint_pv)
-        self._heater_setpoint_pv_obj.put(value)
+
+        if q0_utils.IS_LCLS:
+            self._heater_setpoint_pv_obj.put(value)
+        else:
+            current_power = self._heater_setpoint_pv_obj.get()
+            delta_watts = value - current_power
+            num_steps = abs(int(delta_watts / q0_utils.HEATER_WATTS_PER_SECOND))
+
+            for _ in range(num_steps):
+                new_val = self._heater_setpoint_pv_obj.get() + (
+                    sign(delta_watts) * q0_utils.HEATER_WATTS_PER_SECOND
+                )
+                self._heater_setpoint_pv_obj.put(new_val)
+                sleep(1)
+
+            self._heater_setpoint_pv_obj.put(value)
 
 
 class Q0Cryomodule(Cryomodule):
@@ -379,6 +394,10 @@ class Q0Cryomodule(Cryomodule):
         self.jtAutoSelectPV: str = self.jt_prefix + "AUTO"
         self.dsLiqLevSetpointPV: str = self.jt_prefix + "SP_RQST"
         self.jtManPosSetpointPV: str = self.jt_prefix + "MANPOS_RQST"
+
+        if not q0_utils.IS_LCLS:
+            self.ds_level_pv: str = f"CLL:CM{self.name}:2301:DS:LVL"
+            self.jt_valve_readback_pv: str = f"CPV:CM{self.name}:3001:JT:POS_RBV"
 
         self.heater_prefix = f"CPIC:CM{self.name}:0000:EHCV:"
         self.heater_setpoint_pv: str = self.heater_prefix + "MANPOS_RQST"
@@ -545,8 +564,12 @@ class Q0Cryomodule(Cryomodule):
             )
             sleep(10)
 
-        print(f"Setting {self} heater power to 0")
-        self.heater_power = 0
+        if q0_utils.IS_LCLS:
+            print(f"Setting {self} heater power to 0")
+            self.heater_power = 0
+        else:
+            print(f"Setting {self} heater power to {self.valveParams.refHeatLoadDes}")
+            self.heater_power = self.valveParams.refHeatLoadDes
 
         if turn_cavities_off:
             for cavity in self.cavities.values():
@@ -878,8 +901,8 @@ class Q0Cryomodule(Cryomodule):
 
     def setup_cryo_for_measurement(self, desired_ll, turn_cavities_off: bool = True):
         self.fill(desired_ll, turn_cavities_off=turn_cavities_off)
-        self.jt_position = self.valveParams.refValvePos
         self.heater_power = self.valveParams.refHeatLoadDes
+        self.jt_position = self.valveParams.refValvePos
 
     @property
     def jt_position(self):
