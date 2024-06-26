@@ -3,7 +3,7 @@ from typing import Dict, Optional
 
 from PyQt5.QtCore import pyqtSignal, pyqtSlot
 from PyQt5.QtWidgets import QHBoxLayout, QVBoxLayout
-from lcls_tools.common.pydm_tools.displayUtils import showDisplay
+from lcls_tools.common.frontend.display.util import showDisplay
 from lcls_tools.superconducting.sc_linac_utils import ALL_CRYOMODULES
 from pydm import Display
 from pyqtgraph import PlotWidget, plot
