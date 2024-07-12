@@ -19,6 +19,7 @@ from lcls_tools.superconducting.sc_linac import (
     StepperTuner,
 )
 from numpy import floor, linspace, sign
+from pyqtgraph import LinearRegionItem
 from scipy.signal import medfilt
 from scipy.stats import linregress
 
@@ -42,7 +43,6 @@ class Calibration:
         with open(self.cryomodule.calib_data_file, "r+") as f:
             all_data: Dict = json.load(f)
             data: Dict = all_data[self.time_stamp]
-
             for heater_run_data in data.values():
                 run = q0_utils.HeaterRun(heater_run_data["Desired Heat Load"])
                 run._start_time = datetime.strptime(
@@ -59,6 +59,11 @@ class Calibration:
 
                 run.ll_data = ll_data
                 run.average_heat = heater_run_data[q0_utils.JSON_HEATER_READBACK_KEY]
+                
+                times = np.array(list(run.ll_data.keys()))
+                run.region = LinearRegionItem(values=[np.min(times), np.max(times)],
+                                              bounds=[np.min(times), np.max(times)],
+                                              swapMode='block')
 
                 self.heater_runs.append(run)
 
@@ -107,22 +112,24 @@ class Calibration:
 
     @property
     def dLLdt_dheat(self):
-        if not self._slope:
-            heat_loads = []
-            dll_dts = []
-            for run in self.heater_runs:
-                heat_loads.append(run.average_heat)
-                dll_dts.append(run.dll_dt)
+        heat_loads = []
+        dll_dts = []
+        for run in self.heater_runs:
+            heat_loads.append(run.average_heat)
+            dll_dts.append(run.dll_dt)
 
-            slope, intercept, r_val, p_val, std_err = linregress(heat_loads, dll_dts)
+        slope, intercept, r_val, p_val, std_err = linregress(heat_loads, dll_dts)
 
-            if np.isnan(slope):
-                self._slope = None
-            else:
-                self.adjustment = intercept
-                self._slope = slope
-
+        if np.isnan(slope):
+            self._slope = None
+        else:
+            self.adjustment = intercept
+            self._slope = slope
         return self._slope
+
+    @dLLdt_dheat.setter
+    def dLLdt_dheat(self, value: float):
+        self._slope = value
 
     def get_heat(self, dll_dt: float):
         return (dll_dt - self.adjustment) / self.dLLdt_dheat
@@ -235,6 +242,11 @@ class Q0Measurement:
 
             self.rf_run.avg_pressure = rf_run_data[q0_utils.JSON_AVG_PRESS_KEY]
 
+            for run in [self.heater_run, self.rf_run]:
+                times = np.array(list(run.ll_data.keys()))
+                run.region = LinearRegionItem(values=[np.min(times), np.max(times)],
+                                              bounds=[np.min(times), np.max(times)],
+                                              swapMode='block')
         self.save_data()
 
     def save_data(self):
@@ -281,8 +293,7 @@ class Q0Measurement:
 
     @property
     def raw_heat(self):
-        if not self._raw_heat:
-            self._raw_heat = self.cryomodule.calibration.get_heat(self.rf_run.dll_dt)
+        self._raw_heat = self.cryomodule.calibration.get_heat(self.rf_run.dll_dt)
         return self._raw_heat
 
     @property
@@ -296,28 +307,29 @@ class Q0Measurement:
 
     @property
     def heat_load(self):
-        if not self._heat_load:
-            self._heat_load = self.raw_heat + self.adjustment
+        self._heat_load = self.raw_heat + self.adjustment
         return self._heat_load
 
     @property
     def q0(self):
-        if not self._q0:
-            sum_square_amp = 0
+        sum_square_amp = 0
 
-            for amp in self.rf_run.amplitudes.values():
-                sum_square_amp += amp**2
+        for amp in self.rf_run.amplitudes.values():
+            sum_square_amp += amp**2
 
-            effective_amplitude = np.sqrt(sum_square_amp)
+        effective_amplitude = np.sqrt(sum_square_amp)
 
-            self._q0 = q0_utils.calc_q0(
-                amplitude=effective_amplitude,
-                rf_heat_load=self.heat_load,
-                avg_pressure=self.rf_run.avg_pressure,
-                cav_length=self.cryomodule.cavities[1].length,
-            )
+        self._q0 = q0_utils.calc_q0(
+            amplitude=effective_amplitude,
+            rf_heat_load=self.heat_load,
+            avg_pressure=self.rf_run.avg_pressure,
+            cav_length=self.cryomodule.cavities[1].length,
+        )
         return self._q0
 
+    @q0.setter
+    def q0(self, value: float):
+        self._q0 = value
 
 class Q0Cavity(Cavity):
     def __init__(
@@ -396,6 +408,9 @@ class Q0Cryomodule(Cryomodule):
 
         self._ds_level_pv_obj: Optional[PV] = None
 
+        self.calibration_buffer_plots: Dict[str, Calibration] = {}
+        self.q0_measurement_buffer_plots: Dict[str, Q0Measurement] = {}
+
     def __str__(self):
         return f"CM{self.name}"
 
@@ -469,8 +484,8 @@ class Q0Cryomodule(Cryomodule):
         caput(self.jtAutoSelectPV, 1, wait=True)
         print("Turning cavities and SSAs off")
         for cavity in self.cavities.values():
-            cavity.turnOff()
-            cavity.ssa.turnOff()
+            cavity.turn_off()
+            cavity.ssa.turn_off()
 
     @property
     def heater_power(self):
@@ -510,7 +525,7 @@ class Q0Cryomodule(Cryomodule):
 
         if turn_cavities_off:
             for cavity in self.cavities.values():
-                cavity.turnOff()
+                cavity.turn_off()
 
         self.waitForLL(desired_level)
 
@@ -565,7 +580,7 @@ class Q0Cryomodule(Cryomodule):
                 # We only want to use time periods in which there were no
                 # changes made to the heater settings
                 if len(des_val_set) == 1:
-                    des_pos = round(np.mean(data.values[self.jtValveReadbackPV]), 1)
+                    des_pos = round(np.mean(data.values[self.jt_valve_readback_pv]), 1)
                     heater_des = des_val_set.pop()
                     heater_act = np.mean(data.values[self.heater_readback_pv])
 
@@ -717,7 +732,7 @@ class Q0Cryomodule(Cryomodule):
         duration = (end_time - start_time).total_seconds() / 3600
         print("Duration in hours: {DUR}".format(DUR=duration))
 
-        print("Caluclated Q0: ", self.q0_measurement.q0)
+        print("Calculated Q0: ", self.q0_measurement.q0)
         self.q0_measurement.save_results()
         self.restore_cryo()
 
@@ -737,14 +752,22 @@ class Q0Cryomodule(Cryomodule):
         self.fill(desired_ll)
 
     def load_calibration(self, time_stamp: str):
-        self.calibration: Calibration = Calibration(
-            time_stamp=time_stamp, cryomodule=self
-        )
-        self.calibration.load_data()
+        if time_stamp not in self.calibration_buffer_plots:
+            self.calibration: Calibration = Calibration(
+                time_stamp=time_stamp, cryomodule=self
+            )
+            self.calibration.load_data()
+            self.calibration_buffer_plots[time_stamp] = self.calibration
+        else:
+            self.calibration = self.calibration_buffer_plots[time_stamp]
 
     def load_q0_measurement(self, time_stamp):
-        self.q0_measurement: Q0Measurement = Q0Measurement(self)
-        self.q0_measurement.load_data(time_stamp)
+        if time_stamp not in self.q0_measurement_buffer_plots:
+            self.q0_measurement: Q0Measurement = Q0Measurement(self)
+            self.q0_measurement.load_data(time_stamp)
+            self.q0_measurement_buffer_plots[time_stamp] = self.q0_measurement
+        else:
+            self.q0_measurement = self.q0_measurement_buffer_plots[time_stamp]
 
     def takeNewCalibration(
         self,

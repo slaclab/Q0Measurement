@@ -10,6 +10,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.axes import Axes
 from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
+from pyqtgraph import LinearRegionItem
 from scipy.stats import linregress, siegelslopes
 
 USE_SIEGELSLOPES = True
@@ -101,13 +102,28 @@ class Q0AbortError(Exception):
 
 class DataRun:
     def __init__(self, reference_heat=0):
-        self.ll_data: Dict[float, float] = {}
+        self.region: Optional[LinearRegionItem] = None
+        self._ll_data: Dict[float, float] = {}
         self.heater_readback_buffer: List[float] = []
         self._dll_dt = None
         self._start_time: Optional[datetime] = None
         self._end_time: Optional[datetime] = None
         self._average_heat = None
         self.reference_heat = reference_heat
+
+    @property
+    def ll_data(self) -> Dict[float, float]:
+        if not self.region:
+            return self._ll_data
+        lo, hi = self.region.getRegion()
+        return {timestamp: liquid_level for timestamp, liquid_level in self._ll_data.items() if lo <= timestamp <= hi}
+
+    @ll_data.setter
+    def ll_data(self, data: Dict[float, float]):
+        self._ll_data = data
+
+    def complete_ll_data(self) -> Dict[float, float]:
+        return self._ll_data
 
     @property
     def average_heat(self) -> float:
@@ -143,16 +159,15 @@ class DataRun:
 
     @property
     def dll_dt(self) -> float:
-        if not self._dll_dt:
-            if USE_SIEGELSLOPES:
-                slope, intercept = siegelslopes(
-                    list(self.ll_data.values()), list(self.ll_data.keys())
-                )
-            else:
-                slope, intercept, r_val, p_val, std_err = linregress(
-                    list(self.ll_data.keys()), list(self.ll_data.values())
-                )
-            self._dll_dt = slope
+        if USE_SIEGELSLOPES:
+            slope, intercept = siegelslopes(
+                list(self.ll_data.values()), list(self.ll_data.keys())
+            )
+        else:
+            slope, intercept, r_val, p_val, std_err = linregress(
+                list(self.ll_data.keys()), list(self.ll_data.values())
+            )
+        self._dll_dt = slope
         return self._dll_dt
 
     @dll_dt.setter
