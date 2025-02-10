@@ -641,7 +641,8 @@ class Q0Cryomodule(Cryomodule):
             avgLevel > q0_utils.MIN_DS_LL
         ):
             self.check_abort()
-            print(f"Averaged level is {avgLevel}; waiting 10s")
+            avgLevel_rounded = np.round(avgLevel, decimals=3)
+            print(f"Averaged level is {avgLevel_rounded}; waiting 10s")
             avgLevel = self.averaged_liquid_level
             sleep(10)
 
@@ -845,8 +846,9 @@ class Q0Cryomodule(Cryomodule):
 
         while (desiredLiquidLevel - self.averaged_liquid_level) > 0.01:
             self.check_abort()
+            avgLevel_rounded = np.round(self.averaged_liquid_level, decimals=3)
             print(
-                f"Current averaged level is {self.averaged_liquid_level}; waiting 10 seconds for more data."
+                f"Current averaged level is {avgLevel_rounded}; waiting 10 seconds for more data."
             )
             sleep(10)
 
